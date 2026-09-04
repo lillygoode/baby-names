@@ -1,0 +1,12 @@
+project:
+  type: website
+  resources:
+    - plot.png
+
+website:
+  title: "Tung Tung Sahur"
+
+format:
+  html:
+    theme: flatly
+    toc: false
