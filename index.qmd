@@ -15,20 +15,396 @@ execute:
 #| label: setup
 library(tidyverse)
 library(scales)
+library(jsonlite)
 
 lilly_data <- read_csv("data/lilly.csv", show_col_types = FALSE) |>
-  filter(sex == "F")
+  filter(sex == "F") |>
+  arrange(year)
+
+lilly_json <- toJSON(lilly_data)
 ```
 
-::: {layout-ncol=2}
-![](tung_tung_sahur.png){width=220px style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"}
+The name **Lilly** slumbered peacefully in the United States throughout the mid-20th century before experiencing a massive awakening around the year 2000. 
 
-<div>
-### *Tung, tung, tung, tung... Sahur!* 
+Below, Tung Tung Sahur is ready with his *kentongan* (wooden drum). Click **Play** so Tung Tung can strike the plot to wake it up!
 
-Time to wake up and look at the charts! Just like the rhythmic beat of the *kentongan* drum waking everyone up before dawn, the name **Lilly** slumbered quietly through the mid-20th century before experiencing a massive awakening around the year 2000.
+```{=html}
+<style>
+  .tung-container {
+    background: linear-gradient(135deg, #fff5eb 0%, #fefae0 100%);
+    border: 2px solid #e76f51;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 24px rgba(231, 111, 81, 0.12);
+  }
+  .tung-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .tung-avatar-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+  }
+  .tung-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.1s ease;
+    transform-origin: bottom center;
+  }
+  .tung-hit-anim {
+    animation: tungStrike 0.45s ease-in-out infinite alternate;
+  }
+  @keyframes tungStrike {
+    0% { transform: rotate(-8deg) scale(0.98); }
+    50% { transform: rotate(18deg) translateX(18px) scale(1.08); }
+    100% { transform: rotate(-5deg); }
+  }
+  .hit-burst {
+    position: absolute;
+    top: -10px;
+    right: -25px;
+    background: #e76f51;
+    color: white;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: none;
+    animation: popBurst 0.3s ease-out;
+  }
+  @keyframes popBurst {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .tung-controls {
+    flex-grow: 1;
+  }
+  .tung-speech {
+    background: white;
+    border-left: 4px solid #e76f51;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-style: italic;
+    color: #264653;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .play-btn {
+    background: #e76f51;
+    color: white;
+    border: none;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 12px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(231, 111, 81, 0.4);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .play-btn:hover {
+    background: #d45d3f;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(231, 111, 81, 0.5);
+  }
+  .play-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .stats-badge {
+    display: inline-block;
+    margin-left: 15px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #264653;
+    background: #e9ecef;
+    padding: 8px 16px;
+    border-radius: 20px;
+  }
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+  #plotCanvas {
+    width: 100%;
+    height: 420px;
+    display: block;
+  }
+  .sleep-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(254, 250, 224, 0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+    transition: opacity 0.4s ease;
+    z-index: 10;
+  }
+  .sleep-overlay h3 {
+    margin: 0;
+    color: #264653;
+    font-weight: 700;
+  }
+  .sleep-overlay p {
+    color: #666;
+    margin-top: 6px;
+  }
+</style>
+
+<div class="tung-container">
+  <div class="tung-header">
+    <div class="tung-avatar-wrap">
+      <img id="tungImg" class="tung-img" src="tung_tung_sahur.png" alt="Tung Tung Sahur">
+      <div id="hitBurst" class="hit-burst">💥 TUNG!</div>
+    </div>
+    <div class="tung-controls">
+      <div id="speechText" class="tung-speech">
+        "Tung, tung, tung, tung... Sahur! The plot is fast asleep. Hit Play and I'll strike the drum to wake it up!"
+      </div>
+      <button id="playBtn" class="play-btn" onclick="startTungAnimation()">
+        <span>🥁 Hit Drum & Start Plot</span>
+      </button>
+      <div id="statusBadge" class="stats-badge">Year: 1926 | Births: 306</div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div id="sleepOverlay" class="sleep-overlay">
+      <h3>😴 Shhh... The Plot is Asleep</h3>
+      <p>Hit the Play button above so Tung Tung can strike the drum!</p>
+    </div>
+    <canvas id="plotCanvas" width="900" height="420"></canvas>
+  </div>
 </div>
-:::
+
+<script>
+const rawData = `r lilly_json`;
+
+// Audio synth for wooden kentongan slit drum
+function playKentonganBeat(freq = 460) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.12);
+
+    gain.gain.setValueAtTime(0.7, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.13);
+  } catch (e) {}
+}
+
+const canvas = document.getElementById('plotCanvas');
+const ctx = canvas.getContext('2d');
+let animIndex = 0;
+let isAnimating = false;
+
+function drawBackgroundGrid() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const padL = 70, padR = 40, padT = 50, padB = 60;
+  
+  ctx.clearRect(0, 0, w, h);
+  
+  // Background
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+
+  // Y-axis gridlines (0, 1000, 2000, 3000)
+  ctx.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillStyle = "#666666";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+
+  const yTicks = [0, 1000, 2000, 3000];
+  yTicks.forEach(tick => {
+    const y = (h - padB) - (tick / 3200) * (h - padT - padB);
+    ctx.strokeStyle = "#f0f0f0";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.fillText(tick.toLocaleString(), padL - 12, y);
+  });
+
+  // X-axis ticks (1930, 1945, 1960, 1975, 1990, 2005, 2020)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const xTicks = [1930, 1945, 1960, 1975, 1990, 2005, 2020];
+  xTicks.forEach(year => {
+    const x = padL + ((year - 1926) / (2025 - 1926)) * (w - padL - padR);
+    ctx.strokeStyle = "#f0f0f0";
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, h - padB);
+    ctx.stroke();
+    ctx.fillText(year, x, h - padB + 10);
+  });
+
+  // Titles
+  ctx.textAlign = "left";
+  ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillStyle = "#264653";
+  ctx.fillText("Annual US Births Named Lilly (1926–2025)", padL, 25);
+
+  ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillStyle = "#888888";
+  ctx.textAlign = "right";
+  ctx.fillText("Source: US Social Security Administration | Tung Tung Sahur Edition", w - padR, h - 15);
+}
+
+function renderUpToIndex(idx) {
+  drawBackgroundGrid();
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const padL = 70, padR = 40, padT = 50, padB = 60;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  if (idx < 0) return;
+
+  const points = [];
+  for (let i = 0; i <= idx; i++) {
+    const d = rawData[i];
+    const x = padL + ((d.year - 1926) / (2025 - 1926)) * chartW;
+    const y = (h - padB) - (d.count / 3200) * chartH;
+    points.push({ x, y, year: d.year, count: d.count });
+  }
+
+  // Draw area fill
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, h - padB);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length - 1].x, h - padB);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(244, 162, 97, 0.28)";
+  ctx.fill();
+
+  // Draw curve line
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = "#e76f51";
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+
+  // Draw current leading point
+  const cur = points[points.length - 1];
+  ctx.beginPath();
+  ctx.arc(cur.x, cur.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "#e76f51";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#ffffff";
+  ctx.stroke();
+}
+
+drawBackgroundGrid();
+
+function startTungAnimation() {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  const playBtn = document.getElementById('playBtn');
+  const tungImg = document.getElementById('tungImg');
+  const burst = document.getElementById('hitBurst');
+  const overlay = document.getElementById('sleepOverlay');
+  const speech = document.getElementById('speechText');
+  const badge = document.getElementById('statusBadge');
+
+  playBtn.disabled = true;
+  playBtn.innerHTML = "<span>🥁 Tung Tung Striking!</span>";
+
+  // Hide sleep overlay
+  overlay.style.opacity = '0';
+  setTimeout(() => { overlay.style.display = 'none'; }, 400);
+
+  // Tung Tung hits the plot!
+  tungImg.classList.add('tung-hit-anim');
+  burst.style.display = 'block';
+  playKentonganBeat(520);
+  setTimeout(() => playKentonganBeat(440), 120);
+
+  speech.innerHTML = "<strong>*TUNG! TUNG! TUNG!*</strong> SAHUR! Wake up, plot! Look at Lilly go!";
+
+  animIndex = 0;
+  
+  const stepInterval = setInterval(() => {
+    if (animIndex >= rawData.length) {
+      clearInterval(stepInterval);
+      tungImg.classList.remove('tung-hit-anim');
+      burst.style.display = 'none';
+      playBtn.disabled = false;
+      playBtn.innerHTML = "<span>↺ Hit Again (Replay)</span>";
+      speech.innerHTML = "🎉 <strong>Wake up complete!</strong> Lilly peaked at 2,896 births in 2010!";
+      isAnimating = false;
+      return;
+    }
+
+    const curData = rawData[animIndex];
+    renderUpToIndex(animIndex);
+    badge.innerText = `Year: ${curData.year} | Births: ${curData.count.toLocaleString()}`;
+
+    // Play periodic drum beats during key milestones
+    if (curData.year === 1975) {
+      playKentonganBeat(380);
+      speech.innerHTML = "<em>1975:</em> Lilly is still asleep (only 64 births)... Keep going!";
+    } else if (curData.year === 2000) {
+      playKentonganBeat(520);
+      speech.innerHTML = "🚀 <em>2000:</em> TUNG! Lilly is waking up fast!";
+    } else if (curData.year === 2010) {
+      playKentonganBeat(600);
+      setTimeout(() => playKentonganBeat(520), 100);
+      speech.innerHTML = "💥 <em>2010:</em> PEAK LILLY! 2,896 births!";
+    } else if (animIndex % 12 === 0) {
+      playKentonganBeat(460);
+    }
+
+    animIndex++;
+  }, 45);
+}
+</script>
+```
+
+---
+
+### Analysis & Static Reference Plot
+
+The static visualization below was generated using R and `ggplot2`:
 
 ```{r}
 #| label: plot-popularity
