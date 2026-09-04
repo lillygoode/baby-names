@@ -1,0 +1,10 @@
+# Ignore data folder
+data/
+*.zip
+
+# Ignore Quarto cache and temporary files
+.quarto/
+*_cache/
+.Rproj.user
+.Rhistory
+.RData
